@@ -32,3 +32,5 @@ processed/
 ├── #products/
 ├── #stores/
 ├── #orders/
+```
+##                                                 (First stage is completed) 
