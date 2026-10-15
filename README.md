@@ -56,3 +56,16 @@ processed/
 8. Click **Create** to deploy the Azure Data Factory resource.
 9. Wait for the deployment to complete successfully.
 10. Launch "AZURE Data Factory"
+
+
+### Step 3: Enable Managed Identity
+
+1. Open Azure Data Factory `adf-retail-data-dev202610` in Azure Portal.
+2. Navigate to **Settings → Managed identities → System assigned**.
+3. Set Status to **On** and click **Save**. if it is already **On** keep it as is and proceed next.
+
+### Step 4: Grant Storage Permissions in Azure data lake to Data factory managed Identity
+
+1. Open the ADLS Gen2 storage account in Azure Portal → **Access control (IAM)**.
+2. Assign the **Storage Blob Data Contributor** role to the Data Factory managed identity `adf-retail-data-dev202610`.
+3. Complete the role assignment.
