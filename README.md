@@ -1,5 +1,5 @@
 # ADF-STEPBYSTEP-20261015
-Step by step implementation of Azure datafactory project.
+### Step 1: Create Azure Data Lake
 ------------------------------------------------
 
 Do this now
@@ -33,4 +33,26 @@ processed/
 ├── #stores/
 ├── #orders/
 ```
-##                                                 (First stage is completed) 
+
+### Step 2: Create Azure Data Factory
+
+1. Open the [Azure Portal](https://portal.azure.com).
+2. Search for **Data factories** and click **Create**.
+3. Configure the following details under the **Basics** tab:
+
+| Field | Value |
+|---|---|
+| Subscription | Azure subscription 1 |
+| Resource group | `rg-retail-data-dev` |
+| Name | `adf-retail-data-dev202610` |
+| Region | India South Central |
+| Version | V2 |
+
+4. Review the **Networking** settings:
+   - Connect via: Public endpoint
+5. Review the **Git configuration**, **Advanced**, and **Tags** tabs as required.
+6. Navigate to **Review + create**.
+7. Verify that the configuration matches the details above.
+8. Click **Create** to deploy the Azure Data Factory resource.
+9. Wait for the deployment to complete successfully.
+10. Launch "AZURE Data Factory"
