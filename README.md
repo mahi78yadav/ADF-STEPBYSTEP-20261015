@@ -69,3 +69,10 @@ processed/
 1. Open the ADLS Gen2 storage account in Azure Portal → **Access control (IAM)**.
 2. Assign the **Storage Blob Data Contributor** role to the Data Factory managed identity `adf-retail-data-dev202610`.
 3. Complete the role assignment.
+
+   ### Step 5: Create ADLS Gen2 Linked Service
+
+1. Go to **Manage → Linked services → + New** and select **Azure Data Lake Storage Gen2**.
+2. Enter name `LS_ADLS_Retail` and select **Managed Identity** authentication.
+3. Select your subscription and storage account `stretaildata202610`.
+4. Click **Test connection**; after success, click **Create**.
