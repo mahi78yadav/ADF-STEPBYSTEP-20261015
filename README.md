@@ -76,3 +76,25 @@ processed/
 2. Enter name `LS_ADLS_Retail` and select **Managed Identity** authentication.
 3. Select your subscription and storage account `stretaildata202610`.
 4. Click **Test connection**; after success, click **Create**.
+
+   ### Step 6: Create Source Dataset
+
+1. Create a dataset using **Azure Data Lake Storage Gen2 → DelimitedText**.
+2. Set the name to `DS_Retail_Source`, linked service to `LS_ADLS_Retail`, and container path to `raw`.
+3. Leave **Directory** and **File name** blank, keep **First row as header** checked, and select **None** for Import schema.
+4. Click **OK** to create the dataset.
+
+   ###  Step 7: Create the Destination Dataset
+1. In ADF Studio, select Author → + → Dataset.
+2. Select Azure Data Lake Storage Gen2 → DelimitedText.
+3. Set the name to DS_Retail_Processed, linked service to LS_ADLS_Retail, and container path to processed. Leave Directory and File name blank.
+4. Keep First row as header checked, select None for Import schema, and click OK.
+This dataset will be used as the destination for files copied from raw to processed.
+
+## Step 8: Recursive File Copy Using Azure Data Factory
+
+1. **Create Datasets:** Create source dataset `DS_Retail_Raw_Folder` pointing to the `raw` container and destination dataset `DS_Retail_Processed` pointing to the `processed` container.
+2. **Add Copy Data Activity:** Create pipeline `PL_Retail_File_Ingestion` and add a Copy Data activity named `CP_Copy_Raw_To_Processed`.
+3. **Configure Source:** Select `DS_Retail_Raw_Folder`, choose **Wildcard file path**, leave Wildcard folder path blank, set Wildcard file name to `*.csv`, and enable **Recursive**.
+4. **Configure Destination:** Select `DS_Retail_Processed` and set **Copy behavior** to **Preserve hierarchy**.
+5. **Run and Verify:** Click **Validate**, then **Debug**. Verify that the CSV files are copied from `raw` to `processed` with their folder structure preserved.
