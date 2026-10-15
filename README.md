@@ -98,3 +98,14 @@ This dataset will be used as the destination for files copied from raw to proces
 3. **Configure Source:** Select `DS_Retail_Raw_Folder`, choose **Wildcard file path**, leave Wildcard folder path blank, set Wildcard file name to `*.csv`, and enable **Recursive**.
 4. **Configure Destination:** Select `DS_Retail_Processed` and set **Copy behavior** to **Preserve hierarchy**.
 5. **Run and Verify:** Click **Validate**, then **Debug**. Verify that the CSV files are copied from `raw` to `processed` with their folder structure preserved.
+
+##  Step 9:  Dynamic File Copy Using Get Metadata, ForEach and Copy Data
+
+1. **Create Source Folder:** Create `SourceFiles` inside the `Raw` container and upload `Customers.csv`, `Products.csv`, `Stores.csv`, and `Sales.csv`.
+2. **Create Destination Folder:** Create `Destination` inside the `Processed` container.
+3. **Create Datasets:** Create `DS_Retail_Raw_Folder` for listing source files, `DS_Raw_SourceFiles` for reading individual files, and `DS_Processed_Destination` for writing destination files.
+4. **Configure Get Metadata:** Add `GM_Get_Source_Files`, select `DS_Retail_Raw_Folder`, and choose `Child items` to retrieve the file list.
+5. **Configure ForEach:** Add `FE_Process_Files` after Get Metadata and set Items to `@activity('GM_Get_Source_Files').output.childItems`.
+6. **Configure Copy Data:** Add `CP_Copy_File` inside ForEach. Set the source and destination dataset filename parameters to `@item().name`.
+7. **Configure Dataset Parameters:** Add the string parameter `pFileName` to the source and destination datasets. Set each dataset's file name to `@dataset().pFileName`.
+8. **Validate and Run:** Validate the pipeline, debug it, and verify that all four CSV files are copied to `Processed/Destination/` with their original filenames.
