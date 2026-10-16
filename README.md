@@ -109,3 +109,216 @@ This dataset will be used as the destination for files copied from raw to proces
 6. **Configure Copy Data:** Add `CP_Copy_File` inside ForEach. Set the source and destination dataset filename parameters to `@item().name`.
 7. **Configure Dataset Parameters:** Add the string parameter `pFileName` to the source and destination datasets. Set each dataset's file name to `@dataset().pFileName`.
 8. **Validate and Run:** Validate the pipeline, debug it, and verify that all four CSV files are copied to `Processed/Destination/` with their original filenames.
+
+# <span style="background-color: yellow; color: black;"> Step 10: Azure Data Factory – Incremental File Loading</span>
+
+## 1. Objective
+
+Copy CSV files from the `Raw/SourceFiles` folder to the `Processed/Destination` folder using Azure Data Factory. Use an Azure SQL watermark table to track processed files and avoid copying the same files repeatedly.
+
+## 2. Source and Destination
+
+- **Source container:** `Raw`
+- **Source folder:** `SourceFiles`
+- **Source files:** `Customers.csv`, `Products.csv`, `Stores.csv`, `Sales.csv`
+- **Destination container:** `Processed`
+- **Destination folder:** `Destination`
+- **Azure SQL database:** `sqldb-retail-watermark`
+- **Watermark table:** `dbo.FileIngestionWatermark`
+- **Pipeline:** `PL_Retail_File_Ingestion_Dynamic`
+
+## 3. Create the Source and Destination Folders
+
+1. Open the ADLS Gen2 storage account.
+2. Create the `SourceFiles` folder inside the `Raw` container.
+3. Upload `Customers.csv`, `Products.csv`, `Stores.csv`, and `Sales.csv`.
+4. Create the `Destination` folder inside the `Processed` container.
+
+## 4. Create the Watermark Table
+
+Create the following table in the Azure SQL database:
+
+```sql
+CREATE TABLE dbo.FileIngestionWatermark
+(
+    FileName VARCHAR(255) PRIMARY KEY,
+    ProcessedOn DATETIME2 NOT NULL
+        DEFAULT SYSUTCDATETIME()
+);
+```
+
+The table stores each successfully processed filename and its processing timestamp.
+
+## 5. Configure Get Metadata
+
+1. Add a Get Metadata activity named `GM_Get_Source_Files`.
+2. Select the folder-level dataset pointing to `Raw/SourceFiles`.
+3. Under **Field list**, select `Child items`.
+4. Connect Get Metadata to the ForEach activity using the Success dependency.
+
+The activity returns the list of files available in the source folder.
+
+## 6. Configure ForEach
+
+1. Add a ForEach activity named `FE_Process_Files`.
+2. Under **Settings → Items**, enter:
+
+   ```text
+   @activity('GM_Get_Source_Files').output.childItems
+   ```
+
+3. Add the Lookup activity inside the ForEach loop.
+
+ForEach processes each file returned by Get Metadata.
+
+## 7. Configure the Lookup Activity
+
+1. Add a Lookup activity named `LK_Check_Watermark`.
+2. Select the Azure SQL dataset connected to `sqldb-retail-watermark`.
+3. Select **Use query**.
+4. Enter the query:
+
+   ```sql
+   SELECT COUNT(*) AS FileCount
+   FROM dbo.FileIngestionWatermark
+   WHERE FileName = '@{item().name}';
+   ```
+
+5. Enable **First row only**.
+6. Connect Lookup to the If Condition using the Success dependency.
+
+The Lookup checks whether the current filename already exists in the watermark table.
+
+## 8. Configure the If Condition
+
+1. Add an If Condition named `IF_File_Not_Processed`.
+2. Set the expression to:
+
+   ```text
+   @equals(activity('LK_Check_Watermark').output.firstRow.FileCount, 0)
+   ```
+
+3. In the **True** branch, add the Copy Data activity.
+4. Leave the **False** branch empty.
+
+- **True:** The file is not recorded, so copy it.
+- **False:** The file is already recorded, so skip it.
+
+## 9. Configure the Copy Data Activity
+
+1. Add a Copy Data activity named `CP_Copy_File` inside the True branch.
+2. Select the source dataset pointing to `Raw/SourceFiles`.
+3. Select the destination dataset pointing to `Processed/Destination`.
+4. If the datasets use a `pFileName` parameter, set the source and destination parameter values to:
+
+   ```text
+   @item().name
+   ```
+
+5. In each parameterized dataset's Connection settings, set the file name to:
+
+   ```text
+   @dataset().pFileName
+   ```
+
+6. Confirm that both datasets use the correct CSV format.
+
+The Copy Data activity copies the current file using its original filename.
+
+## 10. Update the Watermark Table
+
+After Copy Data succeeds, add an Azure SQL Script or Stored Procedure activity inside the True branch.
+
+1. Name the activity `SQL_Record_Processed_File`.
+2. Connect `CP_Copy_File` to this activity using the Success dependency.
+3. Insert the current filename and processing timestamp into the watermark table.
+4. Use a parameterized SQL operation to pass the filename safely.
+
+Example SQL logic:
+
+```sql
+INSERT INTO dbo.FileIngestionWatermark
+    (FileName, ProcessedOn)
+VALUES
+    (@FileName, SYSUTCDATETIME());
+```
+
+Configure `@FileName` as a parameter in the SQL activity or stored procedure. Do not hardcode a filename.
+
+**Important:** The watermark insert must execute only after the file copy succeeds.
+
+## 11. Validate and Run the Pipeline
+
+1. Click **Validate all** and resolve any validation errors.
+2. Click **Publish all** to publish the pipeline changes.
+3. Click **Debug** to run the pipeline.
+4. Open the pipeline run output.
+5. Verify that Get Metadata, ForEach, Lookup, If Condition, Copy Data, and the SQL watermark activity succeed.
+
+## 12. Verify the Watermark Table
+
+Execute the following query in the Azure SQL Query Editor:
+
+```sql
+SELECT *
+FROM dbo.FileIngestionWatermark
+ORDER BY ProcessedOn DESC;
+```
+
+Verify that successfully processed filenames appear in the table.
+
+## 13. Test Incremental Loading
+
+1. Run the pipeline with the four original CSV files.
+2. Verify that the files are copied to `Processed/Destination`.
+3. Confirm that their filenames are recorded in the watermark table.
+4. Run the pipeline again without adding new files.
+5. Verify that previously processed files are skipped.
+6. Upload a new CSV file into `Raw/SourceFiles`.
+7. Run the pipeline again.
+8. Verify that the new file is copied and recorded in the watermark table.
+
+## 14. Expected Output
+
+**Source:**
+
+```text
+Raw/
+└── SourceFiles/
+    ├── Customers.csv
+    ├── Products.csv
+    ├── Stores.csv
+    └── Sales.csv
+```
+
+**Destination:**
+
+```text
+Processed/
+└── Destination/
+    ├── Customers.csv
+    ├── Products.csv
+    ├── Stores.csv
+    └── Sales.csv
+```
+
+**Watermark table:**
+
+| FileName | ProcessedOn |
+|---|---|
+| Customers.csv | Processing timestamp |
+| Products.csv | Processing timestamp |
+| Stores.csv | Processing timestamp |
+| Sales.csv | Processing timestamp |
+
+## 15. Implementation Status
+
+- Get Metadata: **Succeeded**
+- ForEach: **Succeeded**
+- Lookup: **Succeeded**
+- If Condition: **Succeeded**
+- Copy Data: **Succeeded**
+
+**Pending verification:** Confirm that `SQL_Record_Processed_File` is configured and succeeds. Verify that the watermark table contains the processed filenames and that subsequent pipeline runs skip existing files.
+
+A successful pipeline run alone does not confirm that incremental loading is complete. The watermark update and repeat-run test must also succeed.
