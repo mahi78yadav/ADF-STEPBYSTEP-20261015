@@ -322,3 +322,139 @@ Processed/
 **Pending verification:** Confirm that `SQL_Record_Processed_File` is configured and succeeds. Verify that the watermark table contains the processed filenames and that subsequent pipeline runs skip existing files.
 
 A successful pipeline run alone does not confirm that incremental loading is complete. The watermark update and repeat-run test must also succeed.
+
+
+
+
+# Step 11: Azure Data Factory — Error Handling and Failure Logging
+
+## 1. Objective
+
+Implement error handling in Azure Data Factory (ADF) to capture failures during file copying and watermark updates.
+
+When an activity fails, ADF calls an Azure SQL stored procedure to log the filename, failed activity, error message, and timestamp.
+
+## 2. Existing Azure SQL Objects
+
+**Database:** `sqldb-retail-watermark`
+
+### Error Log Table
+
+`dbo.FileIngestionErrorLog`
+
+Stores details of pipeline failures.
+
+| Column | Description |
+|---|---|
+| `ErrorLogID` | Unique error record ID |
+| `FileName` | Name of the file being processed |
+| `FailedActivity` | Name of the failed activity |
+| `ErrorMessage` | Error details |
+| `FailedOn` | Failure timestamp in UTC |
+
+### Stored Procedure
+
+`dbo.LogFileIngestionFailure`
+
+This stored procedure inserts failure details into the error log table.
+
+**Important:** Create the table and stored procedure only once. Both ADF logging activities reuse the same stored procedure.
+
+## 3. Configure Copy Activity Failure Logging
+
+1. Open ADF Studio.
+2. Open pipeline `PL_Retail_File_Ingestion_Dynamic`.
+3. Open `FE_Process_Files`.
+4. Open `IF_File_Not_Processed` and select the **True** branch.
+5. Add a Stored Procedure activity named `SQL_Log_Copy_Failure`.
+6. Select the existing Azure SQL linked service.
+7. Select `dbo.LogFileIngestionFailure`.
+8. Click **Import parameters**.
+
+Configure the parameters:
+
+| Parameter | Value |
+|---|---|
+| `FileName` | `@item().name` |
+| `FailedActivity` | `CP_Copy_File` |
+| `ErrorMessage` | `@string(activity('CP_Copy_File').error.message)` |
+
+Use **Add dynamic content** for the expression values.
+
+### Dependency
+
+Connect `CP_Copy_File` to `SQL_Log_Copy_Failure` using the **Failure** dependency (red).
+
+Keep the existing Success dependency from `CP_Copy_File` to the watermark activity.
+
+## 4. Configure Watermark Failure Logging (Optional)
+
+To also capture failures when updating the watermark:
+
+1. Add a Stored Procedure activity named `SQL_Log_Watermark_Failure`.
+2. Select the same Azure SQL linked service.
+3. Select the existing procedure `dbo.LogFileIngestionFailure`.
+4. Import the parameters.
+
+Configure:
+
+| Parameter | Value |
+|---|---|
+| `FileName` | `@item().name` |
+| `FailedActivity` | `RecordProcessedFile` |
+| `ErrorMessage` | `@string(activity('RecordProcessedFile').error.message)` |
+
+Use the actual name of your watermark activity if it differs from `RecordProcessedFile`.
+
+Connect `RecordProcessedFile` to `SQL_Log_Watermark_Failure` using the **Failure** dependency (red).
+
+**Note:** This is a second ADF activity, not a second SQL stored procedure. This section is optional if only Copy Data failures need to be logged.
+
+## 5. Validate and Publish
+
+1. Click **Validate all**.
+2. Resolve any validation errors.
+3. Click **Publish all** after validation succeeds.
+4. Run the pipeline and review the activity statuses.
+
+Do not intentionally break the working pipeline just to test error handling.
+
+## 6. Verify the Error Log
+
+Execute the following query in the Azure SQL Query Editor:
+
+```sql
+SELECT *
+FROM dbo.FileIngestionErrorLog
+ORDER BY FailedOn DESC;
+```
+
+If failures have been logged, the table will show the filename, failed activity, error message, and timestamp.
+
+If no failures have occurred, the table may be empty. This is expected.
+
+## 7. Expected Error-Handling Flow
+
+- **Copy succeeds:** The watermark activity runs.
+- **Copy fails:** `SQL_Log_Copy_Failure` runs.
+- **Watermark update fails:** `SQL_Log_Watermark_Failure` runs, if configured.
+
+Failure logging records errors for investigation. It does not automatically retry or repair failed files.
+
+## 8. Implementation Checklist
+
+- [ ] Error log table exists.
+- [ ] `dbo.LogFileIngestionFailure` stored procedure exists.
+- [ ] `SQL_Log_Copy_Failure` configured.
+- [ ] Copy failure dependency connected.
+- [ ] `SQL_Log_Watermark_Failure` configured (optional).
+- [ ] Watermark failure dependency connected (if configured).
+- [ ] Pipeline validation successful.
+- [ ] Changes published.
+- [ ] Error log query verified.
+
+## 9. Completion Status
+
+Mark error handling as complete after the required activities are configured, validation succeeds, and the relevant failure paths have been verified.
+
+Document any optional failure paths that remain unimplemented.
