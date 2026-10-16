@@ -245,7 +245,7 @@ VALUES
 
 Configure `@FileName` as a parameter in the SQL activity or stored procedure. Do not hardcode a filename.
 
-![Parameter Mapping](./images/SQL-PARAMETER-ASSIGNMENT.png)
+![Parameter Mapping](./imges/SQL-PARAMETER-ASSIGNMENT.PNG)
 
 **Important:** The watermark insert must execute only after the file copy succeeds.
 
